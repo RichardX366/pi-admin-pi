@@ -1,7 +1,9 @@
 import { ChildProcess, exec, spawn } from 'child_process';
 import { io } from 'socket.io-client';
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({
+  path: '/home/pi/Code/pi-admin-pi/.env',
+});
 
 const tasks: { [v: string]: string } = {
   stepper: `cd ~/Code/robotics-pi
