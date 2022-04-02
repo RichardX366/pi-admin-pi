@@ -3,11 +3,11 @@ import { io } from 'socket.io-client';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const tasks = {
-  stepper: `cd ~/Code
-yarn start`,
-  cardboardCNCTest: `cd ~/Code
-yarn start`,
+const tasks: { [v: string]: string } = {
+  stepper: `cd ~/Code/robotics-pi
+yarn start config=stepper`,
+  cardboardCNCTest: `cd ~/Code/robotics-pi
+yarn start config=cardboardCNCTest`,
 };
 
 const currentTasks: { [v: string]: ChildProcess } = {};
@@ -38,6 +38,6 @@ socket.on('task', ({ name, kill, args }) => {
     currentTasks[kill].kill();
     delete currentTasks[kill];
   }
-  currentTasks[name] = exec(`"${name}" ${args.join(' ')}`);
+  currentTasks[name] = exec(`"${tasks[name as string]}" ${args.join(' ')}`);
 });
 socket.on('kill', process.exit);
