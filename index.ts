@@ -1,8 +1,9 @@
 import { ChildProcess, exec, spawn } from 'child_process';
 import { io } from 'socket.io-client';
 import dotenv from 'dotenv';
+const oldEnv = { ...process.env };
 dotenv.config({
-  path: '/home/pi/Code/pi-admin-pi/.env',
+  path: __dirname + '/.env',
 });
 
 const tasks: { [v: string]: string } = {
@@ -40,6 +41,12 @@ socket.on('task', ({ name, kill, args }) => {
     currentTasks[kill].kill();
     delete currentTasks[kill];
   }
-  currentTasks[name] = exec(`"${tasks[name as string]}" ${args.join(' ')}`);
+  currentTasks[name] = exec(`${tasks[name as string]} ${args.join(' ')}`, {
+    env: oldEnv,
+  });
+});
+socket.on('killTask', ({ name }) => {
+  currentTasks[name].kill();
+  delete currentTasks[name];
 });
 socket.on('kill', process.exit);
