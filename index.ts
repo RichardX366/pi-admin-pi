@@ -1,4 +1,5 @@
-import { ChildProcess, exec, spawn } from 'child_process';
+import { ChildProcess, spawn } from 'child_process';
+import { kill } from 'process';
 import { io } from 'socket.io-client';
 import dotenv from 'dotenv';
 const oldEnv = { ...process.env };
@@ -6,16 +7,30 @@ dotenv.config({
   path: __dirname + '/.env',
 });
 
-const tasks: { [v: string]: string } = {
-  stepper: `cd ~/Code/robotics-pi
-yarn start config=stepper`,
-  cardboardCNCTest: `cd ~/Code/robotics-pi
-yarn start config=cardboardCNCTest`,
-};
+const tasks: { [v: string]: { cwd: string; program: string; args: string[] } } =
+  {
+    stepper: {
+      cwd: '/home/pi/Code/robotics-pi',
+      program: 'yarn',
+      args: ['start', 'config=stepper'],
+    },
+    cardboardCNCTest: {
+      cwd: '/home/pi/Code/robotics-pi',
+      program: 'yarn',
+      args: ['start', 'config=cardboardCNCTest'],
+    },
+  };
 
 const currentTasks: { [v: string]: ChildProcess } = {};
 
 const socket = io(process.env.SOCKET_URL as string);
+
+const killProcess = (v: ChildProcess) => kill(-(v.pid as number));
+
+const handleExit = () => {
+  Object.values(currentTasks).forEach(killProcess);
+  process.exit();
+};
 
 const terminal = spawn('bash');
 terminal.stdout.on('data', async (raw: Buffer) => {
@@ -38,15 +53,19 @@ socket.on('connect', () => {
 socket.on('command', (command) => terminal.stdin.write(command));
 socket.on('task', ({ name, kill, args }) => {
   if (kill) {
-    currentTasks[kill].kill();
+    killProcess(currentTasks[kill]);
     delete currentTasks[kill];
   }
-  currentTasks[name] = exec(`${tasks[name as string]} ${args.join(' ')}`, {
+  const task = tasks[name as string];
+  currentTasks[name] = spawn(task.program, [...task.args, ...args], {
     env: oldEnv,
+    cwd: task.cwd,
+    detached: true,
   });
 });
-socket.on('killTask', ({ name }) => {
-  currentTasks[name].kill();
+socket.on('killTask', (name) => {
+  killProcess(currentTasks[name]);
   delete currentTasks[name];
 });
-socket.on('kill', process.exit);
+socket.on('kill', handleExit);
+process.on('SIGINT', handleExit);
